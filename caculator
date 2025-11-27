@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎄 赛马大亨计算器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            background-color: #f0fdf4; /* Light green bg for Christmas */
+        }
+        .suit-spade { color: black; }
+        .suit-heart { color: #e11d48; }
+        .suit-club { color: black; }
+        .suit-diamond { color: #e11d48; }
+        
+        .card-select.selected {
+            ring-width: 4px;
+            --tw-ring-opacity: 1;
+            --tw-ring-color: rgb(34 197 94); /* green-500 */
+            background-color: #f0fdf4;
+            transform: scale(1.05);
+        }
+        
+        /* Animation for results */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-20 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-green-700 to-emerald-600 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="max-w-3xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-horse-head"></i> 赛马大亨计算器
+            </h1>
+            <button onclick="resetAll()" class="text-xs bg-red-600 hover:bg-red-700 px-3 py-1 rounded-full transition shadow">
+                <i class="fa-solid fa-rotate-right"></i> 重置
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto p-4 space-y-6">
+
+        <!-- Phase 1: Player Bets -->
+        <section id="betting-phase" class="bg-white rounded-xl shadow-md p-5 border-t-4 border-green-500">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-gray-700 flex items-center gap-2">
+                    <span class="bg-green-100 text-green-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+                    选手下注
+                </h2>
+                <div class="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+                    总底池: <span id="total-pot-display" class="text-green-600 font-bold text-lg">0</span>
+                </div>
+            </div>
+
+            <!-- Input Form -->
+            <div class="grid grid-cols-12 gap-3 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div class="col-span-5 md:col-span-4">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">名字</label>
+                    <input type="text" id="input-name" placeholder="玩家姓名" class="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none" onkeypress="handleEnter(event)">
+                </div>
+                <div class="col-span-4 md:col-span-3">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">金额</label>
+                    <input type="number" id="input-amount" placeholder="200-700" class="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none" value="200" onkeypress="handleEnter(event)">
+                </div>
+                <div class="col-span-3 md:col-span-3">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">花色</label>
+                    <select id="input-suit" class="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none bg-white">
+                        <option value="♠">♠ 黑桃</option>
+                        <option value="♥">♥ 红桃</option>
+                        <option value="♣">♣ 梅花</option>
+                        <option value="♦">♦ 方片</option>
+                    </select>
+                </div>
+                <div class="col-span-12 md:col-span-2 flex items-end">
+                    <button onclick="addPlayer()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded shadow transition">
+                        <i class="fa-solid fa-plus"></i> 添加
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player List -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-50 text-gray-600 border-b">
+                        <tr>
+                            <th class="py-2 px-3">玩家</th>
+                            <th class="py-2 px-3">下注</th>
+                            <th class="py-2 px-3">支持马匹</th>
+                            <th class="py-2 px-3 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="player-list-body" class="divide-y divide-gray-100">
+                        <!-- JS will populate this -->
+                        <tr class="text-center text-gray-400 py-4"><td colspan="4" class="p-4">暂无下注记录</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Phase 2: Race Result -->
+        <section id="result-phase" class="bg-white rounded-xl shadow-md p-5 border-t-4 border-amber-500">
+            <h2 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                <span class="bg-amber-100 text-amber-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
+                比赛结果
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+                <!-- 1st Place -->
+                <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-center">
+                    <div class="text-xs font-bold text-yellow-700 mb-2 uppercase tracking-wider">🏆 冠军 (50%)</div>
+                    <div class="flex justify-center gap-2" id="rank-1-selector">
+                        <button onclick="selectWinner(1, '♠')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-spade hover:bg-gray-100 transition">♠</button>
+                        <button onclick="selectWinner(1, '♥')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-heart hover:bg-gray-100 transition">♥</button>
+                        <button onclick="selectWinner(1, '♣')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-club hover:bg-gray-100 transition">♣</button>
+                        <button onclick="selectWinner(1, '♦')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-diamond hover:bg-gray-100 transition">♦</button>
+                    </div>
+                </div>
+
+                <!-- 2nd Place -->
+                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
+                    <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">🥈 亚军 (30%)</div>
+                    <div class="flex justify-center gap-2" id="rank-2-selector">
+                        <button onclick="selectWinner(2, '♠')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-spade hover:bg-gray-100 transition">♠</button>
+                        <button onclick="selectWinner(2, '♥')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-heart hover:bg-gray-100 transition">♥</button>
+                        <button onclick="selectWinner(2, '♣')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-club hover:bg-gray-100 transition">♣</button>
+                        <button onclick="selectWinner(2, '♦')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-diamond hover:bg-gray-100 transition">♦</button>
+                    </div>
+                </div>
+
+                <!-- 3rd Place -->
+                <div class="bg-orange-50 p-3 rounded-lg border border-orange-200 text-center">
+                    <div class="text-xs font-bold text-orange-700 mb-2 uppercase tracking-wider">🥉 季军 (20%)</div>
+                    <div class="flex justify-center gap-2" id="rank-3-selector">
+                        <button onclick="selectWinner(3, '♠')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-spade hover:bg-gray-100 transition">♠</button>
+                        <button onclick="selectWinner(3, '♥')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-heart hover:bg-gray-100 transition">♥</button>
+                        <button onclick="selectWinner(3, '♣')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-club hover:bg-gray-100 transition">♣</button>
+                        <button onclick="selectWinner(3, '♦')" class="w-10 h-10 rounded-full border bg-white shadow-sm flex items-center justify-center text-xl suit-diamond hover:bg-gray-100 transition">♦</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 3: Payout Table -->
+        <section id="payout-phase" class="bg-white rounded-xl shadow-md p-5 border-t-4 border-red-500 opacity-50 pointer-events-none transition-all duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-gray-700 flex items-center gap-2">
+                    <span class="bg-red-100 text-red-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">3</span>
+                    奖金分配表 (本局收益)
+                </h2>
+                <div class="flex items-center gap-2 text-xs">
+                    <label class="flex items-center gap-1 cursor-pointer select-none">
+                        <input type="checkbox" id="rounding-mode" checked onchange="calculatePayouts()" class="accent-red-500">
+                        <span>按规则取整(50)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-3 gap-2 mb-4 text-center text-xs md:text-sm">
+                 <div class="bg-yellow-50 p-2 rounded border border-yellow-100">
+                    <div class="text-gray-500">冠军池</div>
+                    <div class="font-bold text-yellow-700 text-lg" id="pool-1">0</div>
+                 </div>
+                 <div class="bg-gray-50 p-2 rounded border border-gray-100">
+                    <div class="text-gray-500">亚军池</div>
+                    <div class="font-bold text-gray-700 text-lg" id="pool-2">0</div>
+                 </div>
+                 <div class="bg-orange-50 p-2 rounded border border-orange-100">
+                    <div class="text-gray-500">季军池</div>
+                    <div class="font-bold text-orange-700 text-lg" id="pool-3">0</div>
+                 </div>
+            </div>
+
+            <!-- Final Table -->
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-red-50 text-red-800">
+                        <tr>
+                            <th class="py-2 px-3">排名</th>
+                            <th class="py-2 px-3">玩家</th>
+                            <th class="py-2 px-3">下注额</th>
+                            <th class="py-2 px-3 text-right">应得奖金</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payout-list-body" class="divide-y divide-gray-100 bg-white">
+                        <!-- JS populated -->
+                        <tr class="text-center text-gray-400 py-4"><td colspan="4" class="p-4">等待比赛结果...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-100">
+                <i class="fa-solid fa-circle-info mr-1"></i> 
+                <strong>注：</strong> 计算公式已包含“玩家本金不自动退回，按净收益分配”的规则。
+            </div>
+        </section>
+        
+        <!-- Phase 4: Final Leaderboard -->
+        <section id="ranking-phase" class="bg-white rounded-xl shadow-md p-5 border-t-4 border-purple-500 opacity-50 pointer-events-none transition-all duration-300">
+            <h2 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                <span class="bg-purple-100 text-purple-700 w-8 h-8 rounded-full flex items-center justify-center text-sm">4</span>
+                最终资产排行榜
+            </h2>
+            <div class="p-3 bg-purple-50 text-purple-800 text-xs rounded border border-purple-100 mb-4">
+                计算公式：<strong>最终资产 = 初始本金(1000) - 下注金额 + 赢得奖金</strong>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-purple-100 text-purple-800">
+                        <tr>
+                            <th class="py-2 px-3 w-16">排名</th>
+                            <th class="py-2 px-3">玩家</th>
+                            <th class="py-2 px-3 text-center hidden md:table-cell">收支详情</th>
+                            <th class="py-2 px-3 text-right">最终资产</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-list-body" class="divide-y divide-gray-100 bg-white">
+                        <!-- JS populated -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+<script>
+    // State
+    let players = [];
+    let winners = { 1: null, 2: null, 3: null };
+    const INITIAL_CAPITAL = 1000;
+
+    // Load from local storage
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedPlayers = localStorage.getItem('horse_race_players');
+        if (savedPlayers) {
+            players = JSON.parse(savedPlayers);
+            renderPlayers();
+        }
+    });
+
+    // Helper: Suit Color
+    function getSuitClass(suit) {
+        if (suit === '♥' || suit === '♦') return 'text-red-600 font-bold';
+        return 'text-gray-900 font-bold';
+    }
+    
+    // Helper: Suit Name
+    function getSuitName(suit) {
+        const map = {'♠': '黑桃', '♥': '红桃', '♣': '梅花', '♦': '方片'};
+        return map[suit] || suit;
+    }
+
+    // --- Phase 1: Betting ---
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') addPlayer();
+    }
+
+    function addPlayer() {
+        const nameIn = document.getElementById('input-name');
+        const amtIn = document.getElementById('input-amount');
+        const suitIn = document.getElementById('input-suit');
+
+        const name = nameIn.value.trim();
+        const amount = parseInt(amtIn.value);
+        const suit = suitIn.value;
+
+        if (!name) return alert("请输入玩家名字");
+        if (!amount || amount <= 0) return alert("请输入有效金额");
+
+        players.push({ id: Date.now(), name, amount, suit });
+        
+        // Reset inputs for next entry, keep suit for convenience
+        nameIn.value = '';
+        nameIn.focus();
+        
+        saveAndRender();
+    }
+
+    function removePlayer(id) {
+        players = players.filter(p => p.id !== id);
+        saveAndRender();
+    }
+
+    function resetAll() {
+        if(confirm('确定要重置所有数据吗？')) {
+            players = [];
+            winners = { 1: null, 2: null, 3: null };
+            document.querySelectorAll('.card-select').forEach(b => b.classList.remove('selected', 'ring-4', 'ring-green-500'));
+            localStorage.removeItem('horse_race_players');
+            renderPlayers();
+            calculatePayouts();
+            
+            // Reset UI state for winners
+            [1,2,3].forEach(rank => {
+                 const container = document.getElementById(`rank-${rank}-selector`);
+                 const buttons = container.querySelectorAll('button');
+                 buttons.forEach(btn => {
+                     btn.classList.remove('bg-green-100', 'ring-2', 'ring-green-500', 'border-green-500');
+                     btn.classList.add('bg-white', 'border');
+                 });
+            });
+        }
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('horse_race_players', JSON.stringify(players));
+        renderPlayers();
+        calculatePayouts(); // Re-calc if winners exist
+    }
+
+    function renderPlayers() {
+        const tbody = document.getElementById('player-list-body');
+        const totalDisplay = document.getElementById('total-pot-display');
+        tbody.innerHTML = '';
+
+        let totalPot = 0;
+
+        if (players.length === 0) {
+            tbody.innerHTML = `<tr class="text-center text-gray-400 py-4"><td colspan="4" class="p-4">暂无下注记录</td></tr>`;
+        } else {
+            players.forEach(p => {
+                totalPot += p.amount;
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 transition border-b border-gray-100 last:border-0";
+                tr.innerHTML = `
+                    <td class="py-2 px-3 font-medium">${p.name}</td>
+                    <td class="py-2 px-3 font-mono text-gray-600">${p.amount}</td>
+                    <td class="py-2 px-3"><span class="${getSuitClass(p.suit)}">${p.suit} ${getSuitName(p.suit)}</span></td>
+                    <td class="py-2 px-3 text-right">
+                        <button onclick="removePlayer(${p.id})" class="text-red-400 hover:text-red-600 px-2 py-1">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        totalDisplay.innerText = totalPot.toLocaleString();
+    }
+
+    // --- Phase 2: Race Results ---
+
+    function selectWinner(rank, suit) {
+        winners[rank] = suit;
+        
+        // UI Update
+        const container = document.getElementById(`rank-${rank}-selector`);
+        const buttons = container.querySelectorAll('button');
+        
+        buttons.forEach(btn => {
+            // Check if this button matches the selected suit
+            if (btn.innerText.includes(suit)) {
+                btn.classList.remove('bg-white', 'border');
+                btn.classList.add('bg-green-100', 'ring-2', 'ring-green-500', 'border-green-500');
+            } else {
+                btn.classList.add('bg-white', 'border');
+                btn.classList.remove('bg-green-100', 'ring-2', 'ring-green-500', 'border-green-500');
+            }
+        });
+
+        calculatePayouts();
+    }
+
+    // --- Phase 3 & 4: Calculation ---
+
+    function calculatePayouts() {
+        const payoutSection = document.getElementById('payout-phase');
+        const rankingSection = document.getElementById('ranking-phase');
+        
+        // Check if we can proceed
+        if (players.length === 0 || (!winners[1] && !winners[2] && !winners[3])) {
+            payoutSection.classList.add('opacity-50', 'pointer-events-none');
+            rankingSection.classList.add('opacity-50', 'pointer-events-none');
+            return;
+        }
+        
+        payoutSection.classList.remove('opacity-50', 'pointer-events-none');
+        rankingSection.classList.remove('opacity-50', 'pointer-events-none');
+
+        const tbody = document.getElementById('payout-list-body');
+        const rankBody = document.getElementById('ranking-list-body');
+        tbody.innerHTML = '';
+        rankBody.innerHTML = '';
+
+        const totalPot = players.reduce((sum, p) => sum + p.amount, 0);
+        const useSmartRounding = document.getElementById('rounding-mode').checked;
+
+        // Pool sizes
+        const pools = {
+            1: totalPot * 0.50,
+            2: totalPot * 0.30,
+            3: totalPot * 0.20
+        };
+
+        // Update pool display
+        document.getElementById('pool-1').innerText = Math.round(pools[1]);
+        document.getElementById('pool-2').innerText = Math.round(pools[2]);
+        document.getElementById('pool-3').innerText = Math.round(pools[3]);
+
+        // Calculate Payouts for Winners Table
+        let results = [];
+        // Map to store winnings by player ID for final ranking
+        let playerWinnings = {}; 
+
+        // Initialize all players with 0 winnings
+        players.forEach(p => playerWinnings[p.id] = 0);
+
+        [1, 2, 3].forEach(rank => {
+            const winningSuit = winners[rank];
+            if (!winningSuit) return;
+
+            // Find all backers for this rank
+            const backers = players.filter(p => p.suit === winningSuit);
+            const totalBetOnWinner = backers.reduce((sum, p) => sum + p.amount, 0);
+
+            backers.forEach(backer => {
+                let payout = 0;
+                if (totalBetOnWinner > 0) {
+                    const rawShare = (pools[rank] * (backer.amount / totalBetOnWinner));
+                    
+                    if (useSmartRounding) {
+                         payout = Math.round(rawShare / 50) * 50;
+                    } else {
+                        payout = Math.round(rawShare);
+                    }
+                }
+
+                // Add to results table list
+                results.push({
+                    rank: rank,
+                    name: backer.name,
+                    bet: backer.amount,
+                    suit: backer.suit,
+                    payout: payout
+                });
+                
+                // Add to winnings tracker
+                playerWinnings[backer.id] += payout;
+            });
+        });
+
+        // --- Render Phase 3 Table (Winners Only) ---
+        results.sort((a, b) => {
+            if (a.rank !== b.rank) return a.rank - b.rank;
+            return b.payout - a.payout;
+        });
+
+        if (results.length === 0) {
+            tbody.innerHTML = `<tr class="text-center text-gray-400 py-4"><td colspan="4" class="p-4">选中的马匹无人下注，庄家通吃！</td></tr>`;
+        } else {
+            results.forEach(r => {
+                let badgeClass = "bg-gray-100 text-gray-600";
+                let rankIcon = "";
+                if (r.rank === 1) { badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-200"; rankIcon = "🏆"; }
+                if (r.rank === 2) { badgeClass = "bg-gray-200 text-gray-700 border-gray-300"; rankIcon = "🥈"; }
+                if (r.rank === 3) { badgeClass = "bg-orange-100 text-orange-800 border-orange-200"; rankIcon = "🥉"; }
+
+                const tr = document.createElement('tr');
+                tr.className = "fade-in border-b border-gray-50 last:border-0";
+                tr.innerHTML = `
+                    <td class="py-3 px-3">
+                        <span class="px-2 py-1 rounded text-xs font-bold border ${badgeClass}">
+                            ${rankIcon} 第${r.rank}名
+                        </span>
+                    </td>
+                    <td class="py-3 px-3 font-medium flex items-center gap-2">
+                        ${r.name}
+                        <span class="text-xs ${getSuitClass(r.suit)} opacity-70">(${r.suit})</span>
+                    </td>
+                    <td class="py-3 px-3 text-gray-500">${r.bet}</td>
+                    <td class="py-3 px-3 text-right font-bold text-green-600 text-lg">+${r.payout}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // --- Render Phase 4 Table (Final Leaderboard) ---
+        // Calculate final balance for ALL players
+        let standings = players.map(p => {
+            const won = playerWinnings[p.id] || 0;
+            const finalBalance = INITIAL_CAPITAL - p.amount + won;
+            return {
+                ...p,
+                won: won,
+                finalBalance: finalBalance
+            };
+        });
+        
+        // Sort by Final Balance Descending
+        standings.sort((a, b) => b.finalBalance - a.finalBalance);
+        
+        standings.forEach((p, index) => {
+            const rank = index + 1;
+            let rowClass = "";
+            let rankDisplay = `<span class="font-mono text-gray-500">#${rank}</span>`;
+            
+            // Highlight top 3
+            if (rank === 1) {
+                rowClass = "bg-purple-50 font-medium";
+                rankDisplay = "👑";
+            } else if (rank === 2) {
+                rankDisplay = "🥈";
+            } else if (rank === 3) {
+                rankDisplay = "🥉";
+            }
+            
+            // Format winnings string
+            let detailHtml = `
+                <span class="text-xs text-gray-400">1000 - ${p.amount} + </span>
+                <span class="text-xs ${p.won > 0 ? 'text-green-600 font-bold' : 'text-gray-400'}">${p.won}</span>
+            `;
+            
+            const tr = document.createElement('tr');
+            tr.className = `fade-in border-b border-gray-100 last:border-0 ${rowClass}`;
+            tr.innerHTML = `
+                <td class="py-3 px-3 text-center text-lg">${rankDisplay}</td>
+                <td class="py-3 px-3">
+                    <div class="font-medium text-gray-800">${p.name}</div>
+                    <div class="text-xs text-gray-400 md:hidden">赢: ${p.won}</div>
+                </td>
+                <td class="py-3 px-3 text-center hidden md:table-cell">${detailHtml}</td>
+                <td class="py-3 px-3 text-right font-bold text-lg text-purple-700">${p.finalBalance}</td>
+            `;
+            rankBody.appendChild(tr);
+        });
+    }
+</script>
+</body>
+</html>
